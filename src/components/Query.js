@@ -1,14 +1,6 @@
 import React, {useState} from 'react';
 import Collapsible from 'react-collapsible';
 import { BsChevronDown, BsFillPatchQuestionFill } from 'react-icons/bs';
-import { useHistory } from 'react-router-dom';
-
-const rarities = [
-    {value: 'M', label: 'Mythic'},
-    {value: 'R', label: 'Rare'},
-    {value: 'U', label: 'Uncommon'},
-    {value: 'C', label: 'Common'},
-]
 
 const Query = () => {
     const [lands, setLands] = useState(24);
@@ -17,18 +9,20 @@ const Query = () => {
     const [artifacts, setArtifacts] = useState(4);
     const [enchantments, setEnchantments] = useState(2);
     const [warning, setWarning] = useState('');
-    const [submitted, setSubmitted] = useState(false);
 
-    const [selectedColors, setSelectedColors] = useState(['White', 'Black'])
-    const [selectedRarities, setSelectedRarities] = useState(['Mythic', 'Rare', 'Uncommon', 'Common'])
+    const [submitted, setSubmitted] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [hasDeck, setHasDeck] = useState(false);
+    let randomDeck = ""
+
+    const [selectedColors, setSelectedColors] = useState(['w', 'b'])
+    const [selectedRarities, setSelectedRarities] = useState(['mythic', 'rare', 'uncommon', 'common'])
 
     const handleChange = (event, setter) => {
         const value = event.target.value;
         setter(value);
         checkTotal();
     };
-
-    const history = useHistory();
 
     const checkTotal = () => {
         const total =
@@ -45,20 +39,54 @@ const Query = () => {
         }
     };
 
-    // get values from input elements in event, compile, fetch request to backend
-    // or if frontend, take the values, fetch request directly into the api
-    const handleSubmit = (event) => {
+    const handleSubmit = async (event) => {
+        const formData = new FormData(event.currentTarget);
         event.preventDefault();
-        console.log(event);
+        setIsLoading(true);
+        setHasDeck(false);
+        document.getElementById("deckBox").innerHTML = "";
+
+        const data = {
+            colors: formData.getAll("colors"),
+            creatures: formData.getAll("creatures"),
+            spells: formData.getAll("spells"),
+            artifacts: formData.getAll("artifacts"),
+            enchantments: formData.getAll("enchantments"),
+            lands: formData.getAll("lands"),
+            rarities: formData.getAll("rarities")
+        };
         setSubmitted(true);
-        foo();
-        history.push("/Generate")
+
+        const response = await fetch('http://localhost:3001/getdata', {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(data),
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                console.log("Success:", data.deck);
+                setIsLoading(false);
+                randomDeck = data.deck;
+                let mainContainer = document.getElementById("deckBox")
+                for (const [key, value] of Object.entries(randomDeck)) {
+                    console.log(value, key);
+                    let div = document.createElement("div");
+                    div.innerHTML = value + " " + key;
+                    mainContainer.appendChild(div);
+                }
+                setHasDeck(true);
+            })
+            .catch((error) => {
+                console.error("Error:", error);
+        });
     };
 
-    // submit button, redirects to page
-    const foo = async () => {
+    /* submit button, redirects to page
+    const redirect = async () => {
         const res = await fetch('./Generate');
-    }
+    } */
 
     return (
         <div>
@@ -76,14 +104,14 @@ const Query = () => {
                             setSelectedColors(values);
                         }}
                     >
-                        <option title="The color of peace, law, structure, selflessness, and equality" value="White">White</option>
-                        <option title="The color of knowledge, deceit, caution, deliberation, and perfection" value="Blue">Blue</option>
-                        <option title="The color of power, self-interest, death, sacrifice, and uninhibitedness."value="Black">Black</option>
-                        <option title="The color of freedom, emotion, action, impulse, and destruction" value="Red">Red</option>
-                        <option title="The color of nature, wildlife, connection, spirituality, and tradition" value="Green">Green</option>
+                        <option title="The color of peace, law, structure, selflessness, and equality" value="w">White (w)</option>
+                        <option title="The color of knowledge, deceit, caution, deliberation, and perfection" value="u">Blue (u)</option>
+                        <option title="The color of power, self-interest, death, sacrifice, and uninhibitedness."value="b">Black (b)</option>
+                        <option title="The color of freedom, emotion, action, impulse, and destruction" value="r">Red (r)</option>
+                        <option title="The color of nature, wildlife, connection, spirituality, and tradition" value="g">Green (g)</option>
                     </select>
-                    <div class="tooltip"><BsFillPatchQuestionFill />
-                        <span class="tooltiptext">Hold the ctrl key and click to make selections!</span>
+                    <div className="tooltip"><BsFillPatchQuestionFill />
+                        <span className="tooltiptext">Hold the ctrl key and click to make selections!</span>
                     </div>
                 </Collapsible>
 
@@ -94,6 +122,7 @@ const Query = () => {
                     <p>
                         <label htmlFor="creatures">Creatures: </label>
                         <input
+                        name="creatures"
                         type="number"
                         id="creatures"
                         value={creatures}
@@ -103,6 +132,7 @@ const Query = () => {
                     <p>
                         <label htmlFor="spells">Spells: </label>
                         <input
+                        name="spells"
                         type="number"
                         id="spells"
                         value={spells}
@@ -112,6 +142,7 @@ const Query = () => {
                     <p>
                         <label htmlFor="artifacts">Artifacts: </label>
                         <input
+                        name="artifacts"
                         type="number"
                         id="artifacts"
                         value={artifacts}
@@ -121,6 +152,7 @@ const Query = () => {
                     <p>
                         <label htmlFor="enchantments">Enchantments: </label>
                         <input
+                        name="enchantments"
                         type="number"
                         id="enchantments"
                         value={enchantments}
@@ -130,13 +162,14 @@ const Query = () => {
                     <p>
                     <label htmlFor="lands">Lands: </label>
                     <input
+                        name="lands"
                         type="number"
                         id="lands"
                         value={lands}
                         onChange={(event) => handleChange(event, setLands)}
                     />
-                    <div class="tooltip"><BsFillPatchQuestionFill />
-                        <span class="tooltiptext">Be careful deviating from this number of lands!</span>
+                    <div className="tooltip"><BsFillPatchQuestionFill />
+                        <span className="tooltiptext">Be careful deviating from this number of lands!</span>
                     </div>
                     </p>
                     {warning !== '' && <p style={{ color: 'red' }}>{warning}</p>}
@@ -150,7 +183,7 @@ const Query = () => {
                     <label>Rarities: </label>
                         <select 
                         name="rarities" 
-                        options={selectedRarities} 
+                        value={selectedRarities} 
                         multiple={true}
                         onChange={e =>{
                             const options = [...e.target.selectedOptions];
@@ -158,18 +191,19 @@ const Query = () => {
                             setSelectedRarities(values);
                         }}
                     >
-                            <option value="Mythic">Mythic</option>
-                            <option value="Rare">Rare</option>
-                            <option value="Uncommon">Uncommon</option>
-                            <option value="Common">Common</option>
+                            <option value="mythic">Mythic</option>
+                            <option value="rare">Rare</option>
+                            <option value="uncommon">Uncommon</option>
+                            <option value="common">Common</option>
                         </select>
                     <p></p>
+                    {/*
                     <label htmlFor="include">Include... </label>
                     <input type="text" id="include" placeholder="Card Name"></input>
 
                     <label htmlFor="exclude"> Exclude... </label>
                     <input type="text" id="exclude" placeholder="Card Name"></input>
-                    
+                    */}
                 </Collapsible>
                         
                 <hr />
@@ -177,12 +211,19 @@ const Query = () => {
                 <p>Your selected colors: {selectedColors.join(', ')}</p>
                 <p>Your selected rarities: {selectedRarities.join(', ')}</p>
 
-                <button name="generate">Generate</button>
+                <button type="submit" name="generate">Generate</button>
+                {isLoading && <p>Loading, this may take a few seconds...</p>}
             </form>
+
+            {/*{hasDeck && */}
+            <p>
+                <label htmlFor="deckBox">The deck will appear below after you hit Generate!</label>
+                <div id="deckBox"></div>
+            </p> {/*}*/}
+
+
         </div>
     );
 };
-
-
 
 export default Query;
